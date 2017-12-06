@@ -140,8 +140,10 @@
 #define THERMO_CS2          2   // E4
 
 #define MAX6675_SS         THERMO_CS1
+#define MAX6675_SS2        THERMO_CS2
 #define MAX6675_SCK_PIN    THERMO_SCK_PIN
 #define MAX6675_DO_PIN     THERMO_DO_PIN
+
 //
 // Augmentation for auto-assigning plugs
 //

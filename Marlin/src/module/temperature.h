@@ -621,6 +621,10 @@ class Temperature {
       static int read_max6675();
     #endif
 
+    #if ENABLED(HEATER_1_USES_MAX6675)
+      static int read_max6675_2();
+    #endif
+
     static void checkExtruderAutoFans();
 
     static float get_pid_output(const int8_t e);

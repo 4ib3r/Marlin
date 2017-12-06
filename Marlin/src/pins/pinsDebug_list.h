@@ -527,6 +527,9 @@
 #if defined(MAX6675_SS) && MAX6675_SS >= 0
   REPORT_NAME_DIGITAL(__LINE__, MAX6675_SS)
 #endif
+#if defined(MAX6675_SS2) && MAX6675_SS2 >= 0
+  REPORT_NAME_DIGITAL(__LINE__, MAX6675_SS2)
+#endif
 // #if defined(MISO) && MISO >= 0
 //   REPORT_NAME_DIGITAL(__LINE__, MISO)
 // #endif

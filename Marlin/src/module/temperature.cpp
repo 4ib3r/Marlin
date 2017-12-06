@@ -781,6 +781,11 @@ void Temperature::manage_heater() {
     if (current_temperature[0] < MAX(HEATER_0_MINTEMP, MAX6675_TMIN + .01)) min_temp_error(0);
   #endif
 
+  #if ENABLED(HEATER_1_USES_MAX6675)
+    if (current_temperature[1] > min(HEATER_0_MAXTEMP, MAX6675_TMAX - 1.0)) max_temp_error(1);
+    if (current_temperature[1] < max(HEATER_0_MINTEMP, MAX6675_TMIN + .01)) min_temp_error(1);
+  #endif
+
   #if WATCH_HOTENDS || WATCH_THE_BED || DISABLED(PIDTEMPBED) || HAS_AUTO_FAN || HEATER_IDLE_HANDLER
     millis_t ms = millis();
   #endif
@@ -955,7 +960,9 @@ float Temperature::analog2temp(const int raw, const uint8_t e) {
         break;
       #endif
     case 1:
-      #if ENABLED(HEATER_1_USES_AD595)
+      #if ENABLED(HEATER_1_USES_MAX6675)
+        return raw * 0.25;
+      #elif ENABLED(HEATER_1_USES_AD595)
         return TEMP_AD595(raw);
       #elif ENABLED(HEATER_1_USES_AD8495)
         return TEMP_AD8495(raw);
@@ -1039,6 +1046,9 @@ float Temperature::analog2temp(const int raw, const uint8_t e) {
 void Temperature::updateTemperaturesFromRawValues() {
   #if ENABLED(HEATER_0_USES_MAX6675)
     current_temperature_raw[0] = read_max6675();
+  #endif
+  #if ENABLED(HEATER_1_USES_MAX6675)
+    current_temperature_raw[1] = read_max6675_2();
   #endif
   HOTEND_LOOP() current_temperature[e] = Temperature::analog2temp(current_temperature_raw[e], e);
   #if HAS_HEATED_BED
@@ -1175,6 +1185,10 @@ void Temperature::init() {
     OUT_WRITE(MAX6675_SS, HIGH);
 
   #endif // HEATER_0_USES_MAX6675
+
+  #if ENABLED(HEATER_1_USES_MAX6675)
+    OUT_WRITE(MAX6675_SS2, HIGH);
+  #endif
 
   HAL_adc_init();
 
@@ -1578,21 +1592,21 @@ void Temperature::disable_all_heaters() {
 
 #if ENABLED(HEATER_0_USES_MAX6675)
 
-  #define MAX6675_HEAT_INTERVAL 250u
-
-  #if ENABLED(MAX6675_IS_MAX31855)
-    uint32_t max6675_temp = 2000;
-    #define MAX6675_ERROR_MASK 7
-    #define MAX6675_DISCARD_BITS 18
-    #define MAX6675_SPEED_BITS 3  // (_BV(SPR1)) // clock ÷ 64
-  #else
-    uint16_t max6675_temp = 2000;
-    #define MAX6675_ERROR_MASK 4
-    #define MAX6675_DISCARD_BITS 3
-    #define MAX6675_SPEED_BITS 2 // (_BV(SPR0)) // clock ÷ 16
-  #endif
-
   int Temperature::read_max6675() {
+
+    #define MAX6675_HEAT_INTERVAL 250u
+
+    #if ENABLED(MAX6675_IS_MAX31855)
+      static uint32_t max6675_temp = 2000;
+      #define MAX6675_ERROR_MASK    7
+      #define MAX6675_DISCARD_BITS 18
+      #define MAX6675_SPEED_BITS    3  // (_BV(SPR1)) // clock ÷ 64
+    #else
+      static uint16_t max6675_temp = 2000;
+      #define MAX6675_ERROR_MASK    4
+      #define MAX6675_DISCARD_BITS  3
+      #define MAX6675_SPEED_BITS    2  // (_BV(SPR0)) // clock ÷ 16
+    #endif
 
     static millis_t next_max6675_ms = 0;
 
@@ -1602,8 +1616,13 @@ void Temperature::disable_all_heaters() {
 
     next_max6675_ms = ms + MAX6675_HEAT_INTERVAL;
 
-    spiBegin();
-    spiInit(MAX6675_SPEED_BITS);
+    //
+    // TODO: spiBegin, spiRec and spiInit doesn't work when soft spi is used.
+    //
+    #if MB(MIGHTYBOARD_REVE)
+      spiBegin();
+      spiInit(MAX6675_SPEED_BITS);
+    #endif
 
     WRITE(MAX6675_SS, 0); // enable TT_MAX6675
 
@@ -1612,7 +1631,13 @@ void Temperature::disable_all_heaters() {
     // Read a big-endian temperature value
     max6675_temp = 0;
     for (uint8_t i = sizeof(max6675_temp); i--;) {
-      max6675_temp |= spiRec();
+      max6675_temp |= (
+        #if MB(MIGHTYBOARD_REVE)
+          max6675_spi.receive()
+        #else
+          spiRec()
+        #endif
+      );
       if (i > 0) max6675_temp <<= 8; // shift left if not the last byte
     }
 
@@ -1645,6 +1670,87 @@ void Temperature::disable_all_heaters() {
   }
 
 #endif // HEATER_0_USES_MAX6675
+
+#if ENABLED(HEATER_1_USES_MAX6675)
+
+  int Temperature::read_max6675_2() {
+
+    #define MAX6675_HEAT_INTERVAL 250u
+
+    #if ENABLED(MAX6675_IS_MAX31855)
+      static uint32_t max6675_temp = 2000;
+      #define MAX6675_ERROR_MASK 7
+      #define MAX6675_DISCARD_BITS 18
+      #define MAX6675_SPEED_BITS 3  // (_BV(SPR1)) // clock ÷ 64
+    #else
+      static uint16_t max6675_temp = 2000;
+      #define MAX6675_ERROR_MASK 4
+      #define MAX6675_DISCARD_BITS 3
+      #define MAX6675_SPEED_BITS 2 // (_BV(SPR0)) // clock ÷ 16
+    #endif
+
+    static millis_t next_max6675_ms = 0;
+
+    millis_t ms = millis();
+
+    if (PENDING(ms, next_max6675_ms)) return (int)max6675_temp;
+
+    next_max6675_ms = ms + MAX6675_HEAT_INTERVAL;
+
+    //
+    // TODO: spiBegin, spiRec and spiInit doesn't work when soft spi is used.
+    //
+    #if MB(MIGHTYBOARD_REVE)
+      spiBegin();
+      spiInit(MAX6675_SPEED_BITS);
+    #endif
+
+    WRITE(MAX6675_SS2, 0); // enable TT_MAX6675
+
+    DELAY_NS(100);       // Ensure 100ns delay
+
+    // Read a big-endian temperature value
+    max6675_temp = 0;
+    for (uint8_t i = sizeof(max6675_temp); i--;) {
+      max6675_temp |= (
+        #if MB(MIGHTYBOARD_REVE)
+          max6675_spi.receive()
+        #else
+          spiRec()
+        #endif
+      );
+      if (i > 0) max6675_temp <<= 8; // shift left if not the last byte
+    }
+
+    WRITE(MAX6675_SS2, 1); // disable TT_MAX6675
+
+    if (max6675_temp & MAX6675_ERROR_MASK) {
+      SERIAL_ERROR_START();
+      SERIAL_ERRORPGM("Temp measurement error! ");
+      #if MAX6675_ERROR_MASK == 7
+        SERIAL_ERRORPGM("MAX31855 ");
+        if (max6675_temp & 1)
+          SERIAL_ERRORLNPGM("Open Circuit");
+        else if (max6675_temp & 2)
+          SERIAL_ERRORLNPGM("Short to GND");
+        else if (max6675_temp & 4)
+          SERIAL_ERRORLNPGM("Short to VCC");
+      #else
+        SERIAL_ERRORLNPGM("MAX6675");
+      #endif
+      max6675_temp = MAX6675_TMAX * 4; // thermocouple open
+    }
+    else
+      max6675_temp >>= MAX6675_DISCARD_BITS;
+      #if ENABLED(MAX6675_IS_MAX31855)
+        // Support negative temperature
+        if (max6675_temp & 0x00002000) max6675_temp |= 0xFFFFC000;
+      #endif
+
+    return (int)max6675_temp;
+  }
+
+#endif // HEATER_1_USES_MAX6675
 
 /**
  * Get raw temperatures
