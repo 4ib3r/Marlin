@@ -990,7 +990,7 @@ static_assert(1 >= 0
 #if HOTENDS > 1
   #if TEMP_SENSOR_1 == 0
     #error "TEMP_SENSOR_1 is required with 2 or more HOTENDS."
-  #elif !PIN_EXISTS(TEMP_1)
+  #elif !PIN_EXISTS(TEMP_1) && !(defined(MAX6675_SS2) && MAX6675_SS2 >= 0)
     #error "TEMP_1_PIN not defined for this board."
   #endif
   #if HOTENDS > 2

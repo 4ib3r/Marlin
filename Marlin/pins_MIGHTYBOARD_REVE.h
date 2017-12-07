@@ -123,7 +123,7 @@
 //
 // Temperature Sensors
 //
-#define TEMP_BED_PIN        69   // K7
+#define TEMP_BED_PIN        15   // K7
 
 // SPI for Max6675 or Max31855 Thermocouple
 // Uses a separate SPI bus
@@ -139,6 +139,7 @@
 #define THERMO_CS2           2   // E4
 
 #define MAX6675_SS          THERMO_CS1
+#define MAX6675_SS2         THERMO_CS2
 #define MAX6675_SCK_PIN     THERMO_SCK_PIN
 #define MAX6675_DO_PIN      THERMO_DO_PIN
 //
@@ -236,7 +237,7 @@
   // For now, pretend it's the SAV
   //
 
-  #define SAV_3DLCD
+//  #define SAV_3DLCD
   #define SR_DATA_PIN       34   // C3
   #define SR_CLK_PIN        35   // C2
   #define SR_STROBE_PIN     33   // C4
