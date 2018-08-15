@@ -1045,10 +1045,10 @@ float Temperature::analog2temp(const int raw, const uint8_t e) {
  */
 void Temperature::updateTemperaturesFromRawValues() {
   #if ENABLED(HEATER_0_USES_MAX6675)
-    current_temperature_raw[0] = read_max6675();
+    current_temperature_raw[0] = READ_MAX6675(0);
   #endif
   #if ENABLED(HEATER_1_USES_MAX6675)
-    current_temperature_raw[1] = read_max6675_2();
+    current_temperature_raw[1] = READ_MAX6675(1);
   #endif
   HOTEND_LOOP() current_temperature[e] = Temperature::analog2temp(current_temperature_raw[e], e);
   #if HAS_HEATED_BED
@@ -1590,9 +1590,19 @@ void Temperature::disable_all_heaters() {
 
 #endif // PROBING_HEATERS_OFF
 
-#if ENABLED(HEATER_0_USES_MAX6675)
+#if ENABLED(HEATER_0_USES_MAX6675) || ENABLED(HEATER_1_USES_MAX6675)
 
-  int Temperature::read_max6675() {
+  #define TWO6675 (ENABLED(HEATER_0_USES_MAX6675) && ENABLED(HEATER_1_USES_MAX6675))
+
+  int Temperature::read_max6675(
+    #if TWO6675
+      const uint8_t hindex
+    #endif
+  ) {
+
+    #if COUNT_6675 == 1
+      const uint8_t hindex = 0;
+    #endif
 
     #define MAX6675_HEAT_INTERVAL 250u
 
@@ -1608,12 +1618,10 @@ void Temperature::disable_all_heaters() {
       #define MAX6675_SPEED_BITS    2  // (_BV(SPR0)) // clock ÷ 16
     #endif
 
-    static millis_t next_max6675_ms = 0;
+    static millis_t next_max6675_ms[COUNT_6675] = { 0 };
 
     millis_t ms = millis();
-
-    if (PENDING(ms, next_max6675_ms)) return (int)max6675_temp;
-
+    if (PENDING(ms, next_max6675_ms[hindex])) return int(max6675_temp);
     next_max6675_ms = ms + MAX6675_HEAT_INTERVAL;
 
     //
@@ -1624,7 +1632,15 @@ void Temperature::disable_all_heaters() {
       spiInit(MAX6675_SPEED_BITS);
     #endif
 
-    WRITE(MAX6675_SS, 0); // enable TT_MAX6675
+    #if COUNT_6675 > 1
+      #define WRITE_MAX6675(V) do{ switch (hindex) { case 1: WRITE(MAX6675_SS2, V); break; default: WRITE(MAX6675_SS, V); } }while(0)
+    #elif ENABLED(HEATER_1_USES_MAX6675)
+      #define WRITE_MAX6675(V) WRITE(MAX6675_SS2, V)
+    #else
+      #define WRITE_MAX6675(V) WRITE(MAX6675_SS, V)
+    #endif
+
+    WRITE_MAX6675(LOW);  // enable TT_MAX6675
 
     DELAY_NS(100);       // Ensure 100ns delay
 
@@ -1641,7 +1657,7 @@ void Temperature::disable_all_heaters() {
       if (i > 0) max6675_temp <<= 8; // shift left if not the last byte
     }
 
-    WRITE(MAX6675_SS, 1); // disable TT_MAX6675
+    WRITE_MAX6675(HIGH); // disable TT_MAX6675
 
     if (max6675_temp & MAX6675_ERROR_MASK) {
       SERIAL_ERROR_START();
@@ -1666,7 +1682,7 @@ void Temperature::disable_all_heaters() {
         if (max6675_temp & 0x00002000) max6675_temp |= 0xFFFFC000;
       #endif
 
-    return (int)max6675_temp;
+    return int(max6675_temp);
   }
 
 #endif // HEATER_0_USES_MAX6675

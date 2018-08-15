@@ -617,12 +617,18 @@ class Temperature {
 
     static void updateTemperaturesFromRawValues();
 
-    #if ENABLED(HEATER_0_USES_MAX6675)
-      static int read_max6675();
-    #endif
-
-    #if ENABLED(HEATER_1_USES_MAX6675)
-      static int read_max6675_2();
+    #if ENABLED(HEATER_0_USES_MAX6675) || ENABLED(HEATER_1_USES_MAX6675)
+      #define COUNT_6675 (ENABLED(HEATER_0_USES_MAX6675) + ENABLED(HEATER_1_USES_MAX6675))
+      #if COUNT_6675 > 1
+        #define READ_MAX6675(N) read_max6675(N)
+      #else
+        #define READ_MAX6675(N) read_max6675()
+      #endif
+      static int read_max6675(
+        #if COUNT_6675 > 1
+          const uint8_t hindex=0
+        #endif
+      );
     #endif
 
     static void checkExtruderAutoFans();
