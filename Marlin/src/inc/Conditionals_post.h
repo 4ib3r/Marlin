@@ -320,7 +320,9 @@
 #elif TEMP_SENSOR_1 == -3
   #error "MAX31855 Thermocouples (-3) not supported for TEMP_SENSOR_1."
 #elif TEMP_SENSOR_1 == -2
-  #error "MAX6675 Thermocouples (-2) not supported for TEMP_SENSOR_1."
+  #define HEATER_1_USES_MAX6675
+  #define MAX6675_TMIN 0
+  #define MAX6675_TMAX 1024
 #elif TEMP_SENSOR_1 == -1
   #define HEATER_1_USES_AD595
 #elif TEMP_SENSOR_1 == 0
