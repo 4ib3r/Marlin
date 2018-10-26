@@ -1622,7 +1622,7 @@ void Temperature::disable_all_heaters() {
 
     millis_t ms = millis();
     if (PENDING(ms, next_max6675_ms[hindex])) return int(max6675_temp);
-    next_max6675_ms = ms + MAX6675_HEAT_INTERVAL;
+    next_max6675_ms[hindex] = ms + MAX6675_HEAT_INTERVAL;
 
     //
     // TODO: spiBegin, spiRec and spiInit doesn't work when soft spi is used.
